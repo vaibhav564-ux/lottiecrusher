@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lottie Optimizer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg: #0b0c0f;
+    --surface: #13151a;
+    --surface2: #1c1f27;
+    --border: #2a2d38;
+    --accent: #c8f135;
+    --accent2: #5b6af5;
+    --text: #e8eaf0;
+    --muted: #6b7080;
+    --danger: #ff4d6d;
+    --success: #2ecc87;
+    --warn: #ffb347;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(200,241,53,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(200,241,53,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap { position: relative; z-index: 1; max-width: 860px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  header { display: flex; align-items: baseline; gap: 16px; margin-bottom: 8px; }
+  .logo { font-size: 28px; font-weight: 800; letter-spacing: -1px; }
+  .logo span { color: var(--accent); }
+  .badge { font-family: 'Space Mono', monospace; font-size: 10px; background: var(--accent2); color: #fff; padding: 3px 8px; border-radius: 20px; letter-spacing: 1px; }
+  .tagline { color: var(--muted); font-size: 14px; margin-bottom: 36px; }
+
+  /* Drop zone */
+  #dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 16px;
+    padding: 60px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+  }
+  #dropzone::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(200,241,53,0.05) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  #dropzone:hover, #dropzone.drag-over { border-color: var(--accent); }
+  #dropzone:hover::after, #dropzone.drag-over::after { opacity: 1; }
+  #dropzone.drag-over { background: #161a10; }
+
+  .dz-icon { font-size: 48px; margin-bottom: 16px; }
+  .dz-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .dz-sub { color: var(--muted); font-size: 13px; }
+  .dz-sub strong { color: var(--accent); cursor: pointer; text-decoration: underline; }
+
+  #fileInput {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 10;
+  }
+
+  /* Settings panel */
+  #settings { display: none; margin-top: 24px; }
+
+  .section-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .opts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }
+  @media(max-width: 500px) { .opts-grid { grid-template-columns: 1fr; } }
+
+  .opt-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    transition: border-color 0.2s, background 0.2s;
+    cursor: pointer;
+    user-select: none;
+  }
+  .opt-card:hover { border-color: var(--accent2); }
+  .opt-card.active { border-color: var(--accent); background: #141910; }
+  .opt-card.active .opt-check { background: var(--accent); border-color: var(--accent); }
+  .opt-card.active .opt-check::after { opacity: 1; }
+
+  .opt-check {
+    width: 18px; height: 18px; min-width: 18px;
+    border-radius: 5px;
+    border: 2px solid var(--border);
+    background: var(--surface2);
+    position: relative;
+    transition: all 0.15s;
+    margin-top: 2px;
+  }
+  .opt-check::after {
+    content: '✓';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: #000;
+    font-weight: 900;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .opt-body { flex: 1; }
+  .opt-name { font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+  .opt-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
+  .opt-saving { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--accent); margin-top: 4px; }
+
+  /* Slider row */
+  .slider-row { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .slider-row label { font-size: 13px; font-weight: 600; white-space: nowrap; min-width: 130px; }
+  .slider-row input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    outline: none;
+  }
+  .slider-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+  }
+  .slider-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    min-width: 36px;
+    text-align: right;
+  }
+
+  /* Analyze card */
+  #analyzeCard {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+
+  .file-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .file-icon { font-size: 28px; }
+  .file-info { flex: 1; }
+  .file-name { font-size: 15px; font-weight: 700; }
+  .file-meta { font-size: 12px; color: var(--muted); font-family: 'Space Mono', monospace; margin-top: 2px; }
+  .change-btn {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .change-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  @media(max-width: 500px) { .stats-grid { grid-template-columns: repeat(2,1fr); } }
+
+  .stat-box {
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+  }
+  .stat-val { font-size: 20px; font-weight: 800; color: var(--text); }
+  .stat-label { font-size: 10px; color: var(--muted); font-family: 'Space Mono', monospace; margin-top: 4px; letter-spacing: 1px; }
+
+  /* Issues */
+  #issuesList { margin-bottom: 24px; }
+  .issue {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    border-left: 3px solid var(--warn);
+  }
+  .issue.tip { border-left-color: var(--accent2); }
+  .issue-icon { font-size: 16px; }
+  .issue-text { flex: 1; }
+  .issue-save { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--accent); }
+
+  /* Optimize btn */
+  #optimizeBtn {
+    width: 100%;
+    padding: 18px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 14px;
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: transform 0.15s, box-shadow 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  #optimizeBtn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(200,241,53,0.3); }
+  #optimizeBtn:active { transform: translateY(0); }
+  #optimizeBtn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  /* Progress */
+  #progressWrap { display: none; margin-top: 16px; }
+  .prog-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    font-size: 13px;
+    opacity: 0.4;
+    transition: opacity 0.3s;
+  }
+  .prog-step.active { opacity: 1; color: var(--accent); }
+  .prog-step.done { opacity: 0.7; color: var(--success); }
+  .prog-step.done .step-icon { color: var(--success); }
+  .step-icon { font-size: 16px; width: 20px; text-align: center; }
+
+  /* Results */
+  #resultCard { display: none; margin-top: 28px; }
+
+  .result-header {
+    background: linear-gradient(135deg, #141910 0%, #131620 100%);
+    border: 1px solid var(--accent);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .result-header::before {
+    content: '✓';
+    position: absolute;
+    right: 24px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 80px;
+    color: rgba(200,241,53,0.08);
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .result-title { font-size: 22px; font-weight: 800; color: var(--accent); margin-bottom: 6px; }
+  .result-sub { font-size: 13px; color: var(--muted); }
+
+  .compare-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 12px;
+    align-items: center;
+    margin: 20px 0;
+  }
+  .sz-box { background: var(--surface2); border-radius: 10px; padding: 14px; text-align: center; }
+  .sz-box.before { border: 1px solid var(--border); }
+  .sz-box.after { border: 1px solid var(--accent); }
+  .sz-label { font-size: 10px; color: var(--muted); font-family: 'Space Mono', monospace; letter-spacing: 1px; margin-bottom: 6px; }
+  .sz-val { font-size: 24px; font-weight: 800; }
+  .sz-arrow { font-size: 24px; color: var(--accent); text-align: center; }
+
+  .saving-pill {
+    display: inline-block;
+    background: var(--accent);
+    color: #000;
+    font-weight: 800;
+    font-size: 16px;
+    padding: 6px 16px;
+    border-radius: 40px;
+    margin-top: 4px;
+  }
+
+  .breakdown-list { list-style: none; }
+  .breakdown-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--surface);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+  .breakdown-list li span:last-child {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--success);
+  }
+
+  #downloadBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    margin-top: 20px;
+    padding: 16px;
+    background: var(--surface2);
+    border: 2px solid var(--accent);
+    color: var(--accent);
+    border-radius: 14px;
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+  }
+  #downloadBtn:hover { background: var(--accent); color: #000; }
+
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 12px 24px;
+    border-radius: 40px;
+    font-size: 13px;
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 999;
+    pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ── Preview ── */
+  #previewCard {
+    display: none;
+    margin-top: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .preview-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+  }
+  .preview-tab {
+    flex: 1;
+    padding: 12px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 1px;
+    cursor: pointer;
+    color: var(--muted);
+    background: none;
+    border: none;
+    transition: color 0.2s, background 0.2s;
+  }
+  .preview-tab.active { color: var(--accent); background: rgba(200,241,53,0.05); }
+  .preview-tab:first-child { border-right: 1px solid var(--border); }
+
+  .preview-panels { position: relative; }
+  .preview-panel {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    gap: 16px;
+  }
+  .preview-panel.active { display: flex; }
+
+  .lottie-stage {
+    width: 100%;
+    max-width: 480px;
+    aspect-ratio: 4/3;
+    background: #09090b;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .lottie-stage canvas, .lottie-stage svg { max-width: 100%; max-height: 100%; }
+
+  .stage-label {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    pointer-events: none;
+  }
+  .stage-label.original { background: rgba(107,112,128,0.3); color: var(--muted); }
+  .stage-label.optimized { background: rgba(200,241,53,0.15); color: var(--accent); }
+
+  /* Controls */
+  .preview-controls {
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .ctrl-row { display: flex; align-items: center; gap: 10px; }
+
+  .play-btn {
+    width: 36px; height: 36px; min-width: 36px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.15s;
+  }
+  .play-btn:hover { transform: scale(1.1); }
+
+  .scrubber {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    outline: none;
+    cursor: pointer;
+  }
+  .scrubber::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+    cursor: pointer;
+  }
+  .time-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    min-width: 60px;
+    text-align: right;
+  }
+
+  .speed-row { display: flex; align-items: center; gap: 8px; }
+  .speed-label { font-size: 11px; color: var(--muted); }
+  .speed-btn {
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .speed-btn.active, .speed-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(200,241,53,0.07); }
+
+  .bg-row { display: flex; align-items: center; gap: 8px; }
+  .bg-label { font-size: 11px; color: var(--muted); }
+  .bg-swatch {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color 0.15s;
+  }
+  .bg-swatch.active { border-color: var(--accent); }
+
+  /* Compare split view */
+  .split-stage {
+    width: 100%;
+    max-width: 480px;
+    aspect-ratio: 4/3;
+    background: #09090b;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    position: relative;
+    cursor: ew-resize;
+  }
+  .split-half {
+    position: absolute;
+    top: 0; bottom: 0;
+    overflow: hidden;
+  }
+  .split-left { left: 0; }
+  .split-right { right: 0; }
+  .split-left .lottie-inner, .split-right .lottie-inner {
+    width: 480px; /* fixed full width, clipped */
+    max-width: none;
+    height: 100%;
+    position: absolute;
+  }
+  .split-right .lottie-inner { right: 0; }
+  .split-divider {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: var(--accent);
+    cursor: ew-resize;
+    z-index: 10;
+  }
+  .split-divider::before {
+    content: '◀ ▶';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--accent);
+    color: #000;
+    font-size: 9px;
+    font-weight: 900;
+    padding: 4px 6px;
+    border-radius: 20px;
+    white-space: nowrap;
+    letter-spacing: 1px;
+  }
+  .split-label {
+    position: absolute;
+    bottom: 10px;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .split-label.left { left: 10px; background: rgba(107,112,128,0.4); color: #fff; }
+  .split-label.right { right: 10px; background: rgba(200,241,53,0.2); color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo">Lottie<span>Crush</span></div>
+    <div class="badge">OPTIMIZER</div>
+  </header>
+  <p class="tagline">Deep compression for Lottie JSON — same animation, fraction of the weight.</p>
+
+  <!-- Drop Zone -->
+  <div id="dropzone">
+    <input type="file" id="fileInput" accept=".json">
+    <div class="dz-icon">📦</div>
+    <div class="dz-title">Drop your Lottie JSON here</div>
+    <div class="dz-sub">or <strong>click anywhere to browse</strong> · .json files only</div>
+  </div>
+
+  <!-- Analyze Card -->
+  <div id="analyzeCard">
+    <div class="file-row">
+      <div class="file-icon">🎞️</div>
+      <div class="file-info">
+        <div class="file-name" id="fileName"></div>
+        <div class="file-meta" id="fileMeta"></div>
+      </div>
+      <label class="change-btn" for="changeInput">Change file</label>
+      <input type="file" id="changeInput" accept=".json" style="display:none">
+    </div>
+    <div class="stats-grid" id="statsGrid"></div>
+  </div>
+
+  <!-- Preview Card -->
+  <div id="previewCard">
+    <div class="preview-tabs">
+      <button class="preview-tab active" data-tab="original" onclick="switchTab('original')">▶ ORIGINAL</button>
+      <button class="preview-tab" data-tab="optimized" onclick="switchTab('optimized')" id="tabOptimized" style="opacity:0.4;pointer-events:none">▶ OPTIMIZED</button>
+    </div>
+
+    <!-- Original panel -->
+    <div class="preview-panel active" id="panel-original">
+      <div class="lottie-stage" id="stage-original">
+        <div class="stage-label original">ORIGINAL</div>
+        <div id="lottie-original" style="width:100%;height:100%"></div>
+      </div>
+      <div class="preview-controls">
+        <div class="ctrl-row">
+          <button class="play-btn" id="playBtn-original" onclick="togglePlay('original')">▶</button>
+          <input type="range" class="scrubber" id="scrubber-original" min="0" max="100" value="0" step="0.1">
+          <div class="time-label" id="time-original">0.0s</div>
+        </div>
+        <div class="ctrl-row" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div class="speed-row">
+            <span class="speed-label">Speed:</span>
+            <button class="speed-btn" onclick="setSpeed('original',0.5)">0.5×</button>
+            <button class="speed-btn active" onclick="setSpeed('original',1)">1×</button>
+            <button class="speed-btn" onclick="setSpeed('original',2)">2×</button>
+          </div>
+          <div class="bg-row">
+            <span class="bg-label">BG:</span>
+            <div class="bg-swatch active" style="background:#09090b" onclick="setBg('original','#09090b',this)"></div>
+            <div class="bg-swatch" style="background:#ffffff" onclick="setBg('original','#ffffff',this)"></div>
+            <div class="bg-swatch" style="background:#f3f4f6" onclick="setBg('original','#f3f4f6',this)"></div>
+            <div class="bg-swatch" style="background:#1e3a5f;border-color:var(--border)" onclick="setBg('original','#1e3a5f',this)"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Optimized panel -->
+    <div class="preview-panel" id="panel-optimized">
+      <div class="lottie-stage" id="stage-optimized">
+        <div class="stage-label optimized">OPTIMIZED</div>
+        <div id="lottie-optimized" style="width:100%;height:100%"></div>
+      </div>
+      <div class="preview-controls">
+        <div class="ctrl-row">
+          <button class="play-btn" id="playBtn-optimized" onclick="togglePlay('optimized')">▶</button>
+          <input type="range" class="scrubber" id="scrubber-optimized" min="0" max="100" value="0" step="0.1">
+          <div class="time-label" id="time-optimized">0.0s</div>
+        </div>
+        <div class="ctrl-row" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div class="speed-row">
+            <span class="speed-label">Speed:</span>
+            <button class="speed-btn" onclick="setSpeed('optimized',0.5)">0.5×</button>
+            <button class="speed-btn active" onclick="setSpeed('optimized',1)">1×</button>
+            <button class="speed-btn" onclick="setSpeed('optimized',2)">2×</button>
+          </div>
+          <div class="bg-row">
+            <span class="bg-label">BG:</span>
+            <div class="bg-swatch active" style="background:#09090b" onclick="setBg('optimized','#09090b',this)"></div>
+            <div class="bg-swatch" style="background:#ffffff" onclick="setBg('optimized','#ffffff',this)"></div>
+            <div class="bg-swatch" style="background:#f3f4f6" onclick="setBg('optimized','#f3f4f6',this)"></div>
+            <div class="bg-swatch" style="background:#1e3a5f" onclick="setBg('optimized','#1e3a5f',this)"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Issues -->
+  <div id="issuesList"></div>
+
+  <!-- Settings -->
+  <div id="settings">
+    <div class="section-label">Optimization Passes</div>
+    <div class="opts-grid" id="optsGrid"></div>
+
+    <div class="section-label">Precision Controls</div>
+    <div class="slider-row">
+      <label>Decimal precision</label>
+      <input type="range" id="decimalSlider" min="0" max="5" value="2">
+      <div class="slider-val" id="decimalVal">2</div>
+    </div>
+    <div class="slider-row" id="imgQualityRow">
+      <label>Image quality</label>
+      <input type="range" id="imgSlider" min="30" max="95" value="75">
+      <div class="slider-val" id="imgVal">75%</div>
+    </div>
+
+    <button id="optimizeBtn">⚡ Optimize Animation</button>
+    <div id="progressWrap"></div>
+  </div>
+
+  <!-- Result -->
+  <div id="resultCard">
+    <div class="result-header">
+      <div class="result-title">Optimization Complete 🎉</div>
+      <div class="result-sub" id="resultSub"></div>
+      <div class="compare-row">
+        <div class="sz-box before">
+          <div class="sz-label">ORIGINAL</div>
+          <div class="sz-val" id="beforeSize"></div>
+        </div>
+        <div class="sz-arrow">→</div>
+        <div class="sz-box after">
+          <div class="sz-label">OPTIMIZED</div>
+          <div class="sz-val" id="afterSize"></div>
+          <div class="saving-pill" id="savingPct"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-label">What was done</div>
+    <ul class="breakdown-list" id="breakdownList"></ul>
+
+    <a id="downloadBtn" href="#" download>⬇ Download Optimized JSON</a>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let originalData = null;
+let originalSize = 0;
+let fileName = '';
+let analysisResult = null;
+let optimizedBlob = null;
+
+// ─── Optimization options ─────────────────────────────────────────────────────
+const OPTS = [
+  {
+    id: 'removeMetadata',
+    name: 'Remove Metadata',
+    desc: 'Strip nm (name), mn, cl, ln, hd fields from non-root layers — invisible to the renderer.',
+    saving: 'Up to 10% savings',
+    default: true,
+  },
+  {
+    id: 'removeDuplicateAssets',
+    name: 'Remove Unused Assets',
+    desc: 'Detect precomp & image assets that are never referenced by any layer and remove them.',
+    saving: 'Major savings if present',
+    default: true,
+  },
+  {
+    id: 'compressImages',
+    name: 'Recompress Embedded Images',
+    desc: 'Re-encode base64 PNG/JPEG assets to JPEG at your chosen quality. Biggest single win.',
+    saving: 'Often 50–90% of image weight',
+    default: true,
+  },
+  {
+    id: 'reduceDecimals',
+    name: 'Reduce Decimal Precision',
+    desc: 'Round floats to your chosen decimal places. Sub-pixel differences are invisible.',
+    saving: 'Up to 20% on dense files',
+    default: true,
+  },
+  {
+    id: 'removeRedundantKeyframes',
+    name: 'Remove Redundant Keyframes',
+    desc: 'Drop keyframes that have the same value as their neighbours (no motion, pure bloat).',
+    saving: 'Up to 15% savings',
+    default: true,
+  },
+  {
+    id: 'deduplicateShapes',
+    name: 'Flatten Static Properties',
+    desc: 'Convert animated properties where all keyframes share the same value to static values.',
+    saving: 'Reduces parse cost',
+    default: true,
+  },
+  {
+    id: 'stripExpressions',
+    name: 'Strip Expressions',
+    desc: 'Remove AE expression strings (x field) from properties — not used by lottie-web.',
+    saving: 'Small but clean',
+    default: true,
+  },
+  {
+    id: 'removeHiddenLayers',
+    name: 'Remove Hidden Layers',
+    desc: 'Remove layers with hd:1 (hidden) that contribute zero visible pixels.',
+    saving: 'Variable',
+    default: false,
+  },
+];
+
+// ─── DOM helpers ──────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+function formatBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+  return (b / (1024 * 1024)).toFixed(2) + ' MB';
+}
+function toast(msg, dur = 2500) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), dur);
+}
+
+// ─── File handling ────────────────────────────────────────────────────────────
+$('fileInput').onchange = e => loadFile(e.target.files[0]);
+$('changeInput').onchange = e => loadFile(e.target.files[0]);
+
+const dz = $('dropzone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault();
+  dz.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.name.endsWith('.json')) loadFile(f);
+  else toast('Please drop a .json Lottie file');
+});
+
+function loadFile(file) {
+  fileName = file.name;
+  originalSize = file.size;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      originalData = JSON.parse(e.target.result);
+      analyze();
+    } catch(err) {
+      toast('❌ Invalid JSON file: ' + err.message);
+    }
+  };
+  reader.onerror = () => toast('❌ Could not read file');
+  reader.readAsText(file);
+}
+
+// ─── Analysis ────────────────────────────────────────────────────────────────
+function analyze() {
+  const data = originalData;
+
+  // Count keyframes
+  let kfCount = 0;
+  function countKF(obj) {
+    if (!obj || typeof obj !== 'object') return;
+    if (obj.a === 1 && Array.isArray(obj.k)) kfCount += obj.k.length;
+    for (const v of Object.values(obj)) countKF(v);
+  }
+  countKF(data);
+
+  // Count vertices
+  let vertCount = 0;
+  function countVerts(obj) {
+    if (!obj || typeof obj !== 'object') return;
+    if (Array.isArray(obj.v) && Array.isArray(obj.i) && Array.isArray(obj.o)) vertCount += obj.v.length;
+    for (const v of Object.values(obj)) countVerts(v);
+  }
+  countVerts(data);
+
+  // Count embedded images
+  const assets = data.assets || [];
+  let imgCount = 0, imgBytes = 0;
+  for (const a of assets) {
+    if (a.p && a.p.startsWith('data:image')) {
+      imgCount++;
+      imgBytes += Math.floor(a.p.length * 0.75);
+    }
+  }
+
+  // Find unused assets
+  const allIds = new Set(assets.map(a => a.id));
+  const usedRefs = new Set();
+  function findRefs(obj) {
+    if (!obj || typeof obj !== 'object') return;
+    if (obj.refId) usedRefs.add(obj.refId);
+    // Also scan assets' own layers
+    for (const v of Object.values(obj)) { if (typeof v === 'object') findRefs(v); }
+  }
+  // Scan main layers
+  for (const l of (data.layers || [])) findRefs(l);
+  // Also scan asset layers (precomps reference each other)
+  for (const a of assets) for (const l of (a.layers || [])) findRefs(l);
+
+  const unusedAssets = [...allIds].filter(id => !usedRefs.has(id));
+
+  // Count floats
+  const raw = JSON.stringify(data);
+  const floatMatches = raw.match(/\d+\.\d+/g) || [];
+  const avgPrec = floatMatches.length ? (floatMatches.reduce((s, f) => s + f.split('.')[1].length, 0) / floatMatches.length) : 0;
+
+  // Hidden layers
+  function countHidden(layers) {
+    return (layers || []).reduce((s, l) => s + (l.hd ? 1 : 0) + countHidden(l.layers), 0);
+  }
+  const hiddenCount = countHidden(data.layers) + assets.reduce((s, a) => s + countHidden(a.layers), 0);
+
+  analysisResult = { kfCount, vertCount, imgCount, imgBytes, unusedAssets, floatCount: floatMatches.length, avgPrec, hiddenCount, assets, allIds };
+
+  // Render UI
+  renderAnalyze();
+}
+
+function renderAnalyze() {
+  const r = analysisResult;
+  const data = originalData;
+  const dur = ((data.op - data.ip) / data.fr).toFixed(1);
+
+  $('fileName').textContent = fileName;
+  $('fileMeta').textContent = `${formatBytes(originalSize)} · ${data.fr}fps · ${dur}s · ${(data.layers||[]).length} layers · ${(data.assets||[]).length} assets`;
+
+  $('statsGrid').innerHTML = [
+    { v: formatBytes(originalSize), l: 'FILE SIZE' },
+    { v: r.kfCount, l: 'KEYFRAMES' },
+    { v: r.imgCount, l: 'IMAGES' },
+    { v: r.unusedAssets.length, l: 'UNUSED ASSETS' },
+  ].map(s => `<div class="stat-box"><div class="stat-val">${s.v}</div><div class="stat-label">${s.l}</div></div>`).join('');
+
+  // Issues / opportunities
+  const issues = [];
+  if (r.unusedAssets.length) issues.push({ t: `⚠️`, text: `${r.unusedAssets.length} unused asset(s) found — dead weight in the file`, save: `~${r.unusedAssets.length * 5}%+ savings` });
+  if (r.imgBytes > 50000) issues.push({ t: `🖼️`, text: `${formatBytes(r.imgBytes)} in embedded images — recompression will help most`, save: `Biggest win` });
+  if (r.avgPrec > 2.5) issues.push({ t: `🔢`, text: `Floats average ${r.avgPrec.toFixed(1)} decimal places — can be rounded safely`, save: `~10–20% savings` });
+  if (r.kfCount > 300) issues.push({ t: `⏱️`, text: `${r.kfCount} keyframes — redundant ones can be pruned`, save: `~5–15% savings` });
+  if (r.hiddenCount > 0) issues.push({ t: `👁️`, text: `${r.hiddenCount} hidden layer(s) — invisible but still parsed`, save: `Optional removal`, tip: true });
+
+  const il = $('issuesList');
+  if (issues.length) {
+    il.innerHTML = `<div class="section-label" style="margin-top:20px">Optimization Opportunities</div>` +
+      issues.map(i => `<div class="issue${i.tip?' tip':''}"><div class="issue-icon">${i.t}</div><div class="issue-text">${i.text}</div><div class="issue-save">${i.save}</div></div>`).join('');
+  } else {
+    il.innerHTML = '';
+  }
+
+  // Show/hide image quality slider
+  $('imgQualityRow').style.display = r.imgCount > 0 ? 'flex' : 'none';
+
+  // Render options
+  renderOpts();
+
+  $('dropzone').style.display = 'none';
+  $('analyzeCard').style.display = 'block';
+  $('settings').style.display = 'block';
+  $('resultCard').style.display = 'none';
+
+  // Show preview
+  $('previewCard').style.display = 'block';
+  // Reset optimized tab to locked
+  const tabOpt = $('tabOptimized');
+  tabOpt.style.opacity = '0.4';
+  tabOpt.style.pointerEvents = 'none';
+  switchTab('original');
+  setTimeout(() => initPreview('original', originalData), 50);
+}
+
+// ─── Options ──────────────────────────────────────────────────────────────────
+let activeOpts = {};
+function renderOpts() {
+  OPTS.forEach(o => { if (!(o.id in activeOpts)) activeOpts[o.id] = o.default; });
+  $('optsGrid').innerHTML = OPTS.map(o => `
+    <div class="opt-card${activeOpts[o.id]?' active':''}" data-id="${o.id}">
+      <div class="opt-check"></div>
+      <div class="opt-body">
+        <div class="opt-name">${o.name}</div>
+        <div class="opt-desc">${o.desc}</div>
+        <div class="opt-saving">${o.saving}</div>
+      </div>
+    </div>`).join('');
+  $('optsGrid').querySelectorAll('.opt-card').forEach(card => {
+    card.onclick = () => {
+      const id = card.dataset.id;
+      activeOpts[id] = !activeOpts[id];
+      card.classList.toggle('active', activeOpts[id]);
+      card.querySelector('.opt-check').style.background = activeOpts[id] ? 'var(--accent)' : '';
+    };
+  });
+}
+
+// Sliders
+$('decimalSlider').oninput = e => $('decimalVal').textContent = e.target.value;
+$('imgSlider').oninput = e => $('imgVal').textContent = e.target.value + '%';
+
+// ─── Optimize ────────────────────────────────────────────────────────────────
+$('optimizeBtn').onclick = async () => {
+  $('optimizeBtn').disabled = true;
+  $('resultCard').style.display = 'none';
+  await runOptimizer();
+  $('optimizeBtn').disabled = false;
+};
+
+async function runOptimizer() {
+  const steps = [
+    { id: 'metadata', label: 'Stripping metadata & names', pass: removeMetadata },
+    { id: 'unused', label: 'Removing unused assets', pass: removeUnusedAssets },
+    { id: 'hidden', label: 'Removing hidden layers', pass: removeHiddenLayers },
+    { id: 'exprs', label: 'Stripping AE expressions', pass: stripExpressions },
+    { id: 'kf', label: 'Pruning redundant keyframes', pass: removeRedundantKeyframes },
+    { id: 'static', label: 'Flattening static properties', pass: flattenStatic },
+    { id: 'decimals', label: 'Rounding float precision', pass: reduceDecimals },
+    { id: 'images', label: 'Recompressing embedded images', pass: recompressImages },
+  ];
+
+  const pw = $('progressWrap');
+  pw.style.display = 'block';
+  pw.innerHTML = steps.map(s => `
+    <div class="prog-step" id="step_${s.id}">
+      <div class="step-icon">○</div>
+      <div>${s.label}</div>
+    </div>`).join('');
+
+  // Deep clone
+  let data = JSON.parse(JSON.stringify(originalData));
+  const breakdown = [];
+
+  for (const step of steps) {
+    const el = $(`step_${step.id}`);
+    el.classList.add('active');
+    el.querySelector('.step-icon').textContent = '⟳';
+    await sleep(60);
+
+    const sizeBefore = JSON.stringify(data).length;
+    data = await step.pass(data);
+    const sizeAfter = JSON.stringify(data).length;
+    const saved = sizeBefore - sizeAfter;
+
+    el.classList.remove('active');
+    el.classList.add('done');
+    el.querySelector('.step-icon').textContent = '✓';
+
+    if (saved > 0) {
+      breakdown.push({ label: step.label, saved });
+    }
+  }
+
+  // Final minify
+  const optimizedStr = JSON.stringify(data);
+  optimizedBlob = new Blob([optimizedStr], { type: 'application/json' });
+  const afterSize = optimizedBlob.size;
+  const saving = ((1 - afterSize / originalSize) * 100).toFixed(1);
+
+  // Show result
+  pw.style.display = 'none';
+  renderResult(afterSize, saving, breakdown, data);
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function renderResult(afterSize, saving, breakdown, optimizedData) {
+  $('resultCard').style.display = 'block';
+  $('resultSub').textContent = `Processed ${fileName}`;
+  $('beforeSize').textContent = formatBytes(originalSize);
+  $('afterSize').textContent = formatBytes(afterSize);
+  $('savingPct').textContent = `-${saving}%`;
+
+  $('breakdownList').innerHTML = breakdown
+    .sort((a, b) => b.saved - a.saved)
+    .map(b => `<li><span>${b.label}</span><span>-${formatBytes(b.saved)}</span></li>`)
+    .join('');
+
+  const url = URL.createObjectURL(optimizedBlob);
+  const dlBtn = $('downloadBtn');
+  dlBtn.href = url;
+  dlBtn.download = fileName.replace('.json', '_optimized.json');
+
+  $('resultCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // Init optimized preview
+  if (optimizedData) {
+    const tab = $('tabOptimized');
+    tab.style.opacity = '1';
+    tab.style.pointerEvents = '';
+    setTimeout(() => {
+      initPreview('optimized', optimizedData);
+      switchTab('optimized');
+      $('previewCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  }
+}
+
+// ─── Optimization passes ──────────────────────────────────────────────────────
+
+// 1. Remove metadata names from layers/shapes (not root)
+function removeMetadata(data) {
+  if (!activeOpts.removeMetadata) return data;
+  const STRIP_LAYER = ['nm', 'ln', 'cl', 'mn'];
+  const STRIP_SHAPE = ['nm', 'mn'];
+
+  function cleanLayer(layer) {
+    STRIP_LAYER.forEach(k => delete layer[k]);
+    if (layer.shapes) layer.shapes.forEach(cleanShape);
+    if (layer.layers) layer.layers.forEach(cleanLayer);
+    return layer;
+  }
+  function cleanShape(shape) {
+    STRIP_SHAPE.forEach(k => delete shape[k]);
+    if (shape.it) shape.it.forEach(cleanShape);
+    return shape;
+  }
+
+  // Keep root nm
+  if (data.layers) data.layers.forEach(cleanLayer);
+  if (data.assets) data.assets.forEach(a => {
+    if (a.layers) a.layers.forEach(cleanLayer);
+  });
+  return data;
+}
+
+// 2. Remove unused assets (deep — including precomps that ref nothing)
+function removeUnusedAssets(data) {
+  if (!activeOpts.removeDuplicateAssets) return data;
+  const assets = data.assets || [];
+
+  function collectRefs(layers) {
+    const refs = new Set();
+    function scan(obj) {
+      if (!obj || typeof obj !== 'object') return;
+      if (obj.refId) refs.add(obj.refId);
+      for (const v of Object.values(obj)) scan(v);
+    }
+    (layers || []).forEach(scan);
+    return refs;
+  }
+
+  // Iteratively remove unused (some assets only referenced by other assets)
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const mainRefs = collectRefs(data.layers);
+    const assetRefs = new Set();
+    for (const a of data.assets || []) {
+      for (const ref of collectRefs(a.layers)) assetRefs.add(ref);
+    }
+    const allRefs = new Set([...mainRefs, ...assetRefs]);
+    const before = data.assets.length;
+    data.assets = data.assets.filter(a => allRefs.has(a.id));
+    if (data.assets.length !== before) changed = true;
+  }
+  return data;
+}
+
+// 3. Remove hidden layers
+function removeHiddenLayers(data) {
+  if (!activeOpts.removeHiddenLayers) return data;
+  function clean(layers) {
+    return (layers || []).filter(l => !l.hd).map(l => {
+      if (l.layers) l.layers = clean(l.layers);
+      return l;
+    });
+  }
+  data.layers = clean(data.layers);
+  if (data.assets) data.assets.forEach(a => { if (a.layers) a.layers = clean(a.layers); });
+  return data;
+}
+
+// 4. Strip AE expression strings
+function stripExpressions(data) {
+  if (!activeOpts.stripExpressions) return data;
+  function strip(obj) {
+    if (!obj || typeof obj !== 'object') return;
+    if ('x' in obj && typeof obj.x === 'string') delete obj.x;
+    for (const v of Object.values(obj)) strip(v);
+  }
+  strip(data);
+  return data;
+}
+
+// 5. Remove redundant keyframes (same value as neighbours)
+function removeRedundantKeyframes(data) {
+  if (!activeOpts.removeRedundantKeyframes) return data;
+
+  function eqVal(a, b) {
+    if (a === b) return true;
+    if (Array.isArray(a) && Array.isArray(b) && a.length === b.length)
+      return a.every((v, i) => Math.abs(v - b[i]) < 0.0001);
+    return false;
+  }
+
+  function pruneKFs(prop) {
+    if (!prop || typeof prop !== 'object') return;
+    if (prop.a === 1 && Array.isArray(prop.k) && prop.k.length > 2) {
+      const kfs = prop.k;
+      const keep = [kfs[0]];
+      for (let i = 1; i < kfs.length - 1; i++) {
+        const prev = keep[keep.length - 1];
+        const curr = kfs[i];
+        const next = kfs[i + 1];
+        // Keep if value differs from either neighbour
+        if (!eqVal(curr.s, prev.s) || !eqVal(curr.s, next.s)) {
+          keep.push(curr);
+        }
+      }
+      keep.push(kfs[kfs.length - 1]);
+      prop.k = keep;
+    }
+    for (const v of Object.values(prop)) pruneKFs(v);
+  }
+  pruneKFs(data);
+  return data;
+}
+
+// 6. Flatten animated properties where all keyframes are identical → static
+function flattenStatic(data) {
+  if (!activeOpts.deduplicateShapes) return data;
+
+  function flatten(obj) {
+    if (!obj || typeof obj !== 'object') return;
+    for (const [key, prop] of Object.entries(obj)) {
+      if (prop && typeof prop === 'object' && prop.a === 1 && Array.isArray(prop.k)) {
+        const vals = prop.k.map(k => k.s);
+        if (vals.length > 0 && vals.every(v => v !== undefined)) {
+          const first = vals[0];
+          if (vals.every(v => {
+            if (Array.isArray(first) && Array.isArray(v))
+              return v.length === first.length && v.every((n, i) => Math.abs(n - first[i]) < 0.001);
+            return v === first;
+          })) {
+            obj[key] = { a: 0, k: first };
+          }
+        }
+      }
+      flatten(prop);
+    }
+  }
+  flatten(data);
+  return data;
+}
+
+// 7. Round float precision
+function reduceDecimals(data) {
+  if (!activeOpts.reduceDecimals) return data;
+  const prec = parseInt($('decimalSlider').value, 10);
+  const factor = Math.pow(10, prec);
+
+  function round(obj) {
+    if (Array.isArray(obj)) return obj.map(round);
+    if (typeof obj === 'number') return Math.round(obj * factor) / factor;
+    if (obj && typeof obj === 'object') {
+      const out = {};
+      for (const [k, v] of Object.entries(obj)) out[k] = round(v);
+      return out;
+    }
+    return obj;
+  }
+  return round(data);
+}
+
+// 8. Recompress embedded images via Canvas
+async function recompressImages(data) {
+  if (!activeOpts.compressImages) return data;
+  const quality = parseInt($('imgSlider').value, 10) / 100;
+  const assets = data.assets || [];
+
+  for (const asset of assets) {
+    if (!asset.p || !asset.p.startsWith('data:image')) continue;
+    try {
+      const compressed = await compressBase64Image(asset.p, quality);
+      if (compressed.length < asset.p.length) {
+        asset.p = compressed;
+        // Update media type
+        if (asset.p.startsWith('data:image/png')) asset.p = asset.p.replace('data:image/png', 'data:image/jpeg');
+      }
+    } catch (e) {
+      // Skip if can't compress this image
+    }
+  }
+  return data;
+}
+
+function compressBase64Image(dataUrl, quality) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      // White background for PNG with transparency
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      const result = canvas.toDataURL('image/jpeg', quality);
+      resolve(result);
+    };
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
+// ─── Preview ──────────────────────────────────────────────────────────────────
+const anims = {};
+
+function initPreview(key, animData) {
+  const container = document.getElementById(`lottie-${key}`);
+  if (!container) return;
+
+  // Destroy existing
+  if (anims[key]) { try { anims[key].destroy(); } catch(e){} }
+  container.innerHTML = '';
+
+  const anim = lottie.loadAnimation({
+    container,
+    renderer: 'svg',
+    loop: true,
+    autoplay: true,
+    animationData: JSON.parse(JSON.stringify(animData)),
+  });
+
+  anims[key] = anim;
+  const scrubber = document.getElementById(`scrubber-${key}`);
+  const timeLabel = document.getElementById(`time-${key}`);
+  const playBtn  = document.getElementById(`playBtn-${key}`);
+  const totalFrames = anim.totalFrames;
+  const fps = anim.frameRate;
+
+  playBtn.textContent = '⏸';
+
+  anim.addEventListener('enterFrame', () => {
+    const pct = (anim.currentFrame / totalFrames) * 100;
+    scrubber.value = pct;
+    timeLabel.textContent = (anim.currentFrame / fps).toFixed(1) + 's';
+  });
+
+  anim.addEventListener('complete', () => {
+    if (!anim.loop) playBtn.textContent = '▶';
+  });
+
+  scrubber.oninput = () => {
+    const frame = (scrubber.value / 100) * totalFrames;
+    anim.goToAndStop(frame, true);
+    playBtn.textContent = '▶';
+  };
+}
+
+function togglePlay(key) {
+  const anim = anims[key];
+  if (!anim) return;
+  const btn = document.getElementById(`playBtn-${key}`);
+  if (anim.isPaused) {
+    anim.play();
+    btn.textContent = '⏸';
+  } else {
+    anim.pause();
+    btn.textContent = '▶';
+  }
+}
+
+function setSpeed(key, speed) {
+  const anim = anims[key];
+  if (!anim) return;
+  anim.setSpeed(speed);
+  // Update active button
+  const panel = document.getElementById(`panel-${key}`);
+  panel.querySelectorAll('.speed-btn').forEach(b => {
+    b.classList.toggle('active', parseFloat(b.textContent) === speed);
+  });
+}
+
+function setBg(key, color, el) {
+  const stage = document.getElementById(`stage-${key}`);
+  if (stage) stage.style.background = color;
+  const panel = document.getElementById(`panel-${key}`);
+  panel.querySelectorAll('.bg-swatch').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.preview-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.preview-panel').forEach(p => p.classList.toggle('active', p.id === `panel-${tab}`));
+  // Pause the other one to save CPU
+  Object.entries(anims).forEach(([key, anim]) => {
+    if (key !== tab && anim && !anim.isPaused) anim.pause();
+    if (key === tab && anim && anim.isPaused) { anim.play(); document.getElementById(`playBtn-${key}`).textContent = '⏸'; }
+  });
+}
+</script>
+</body>
+</html>
